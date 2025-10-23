@@ -9,9 +9,19 @@ import { subDays, addDays, format } from 'date-fns';
  */
 export async function authenticate() {
     console.log('[DB Service] Autenticando no PocketBase como usuário de serviço...');
-    // Usamos authRefresh para evitar login desnecessário se o token ainda for válido
-    await pb.collection('users').authWithPassword(pbAdminEmail, pbAdminPassword);
-    console.log(`[DB Service] Autenticado com sucesso como: ${pb.authStore.model.email}`);
+    try {
+        // Autentica sempre com usuário e senha. Se a intenção fosse usar authRefresh, a lógica seria diferente.
+        await pb.collection('users').authWithPassword(pbAdminEmail, pbAdminPassword);
+        console.log(`[DB Service] Autenticado com sucesso como: ${pb.authStore.model.email}`);
+    } catch (authErr) {
+        console.error('[DB Service] Falha ao autenticar usuário de serviço no PocketBase:', authErr.message);
+        if (authErr.status === 404) {
+            console.error("[DB Service] Verifique se sua coleção de usuários realmente se chama 'users' e se as credenciais estão corretas.");
+        } else if (authErr.status === 400) {
+            console.error("[DB Service] Credenciais de autenticação inválidas. Verifique PB_ADMIN_EMAIL e PB_ADMIN_PASSWORD.");
+        }
+        throw authErr; // Re-lança o erro para parar a execução do job
+    }
 }
 
 /**
@@ -57,8 +67,36 @@ export async function fetchRawData() {
  * Salva o relatório de análise no banco.
  * (Ainda não implementado)
  */
-export async function saveAnalysisReport(reports) {
-    console.log(`[DB Service] ${reports.length} relatórios recebidos para salvar (Simulado).`);
-    // Implementaremos o "Upsert" (create or update) em 'full_analysis_report' aqui
-    return;
+export async function saveAnalysisReport(analysisReports) {
+    console.log(`[DB Service] Salvando ${analysisReports.length} relatórios de análise...`);
+    const upsertPromises = [];
+
+    for (const report of analysisReports) {
+        upsertPromises.push(async () => {
+            try {
+                // Assumimos que 'date' é um campo único para identificar o relatório diário.
+                // Adapte o filtro se o identificador único for outro (ex: 'id' ou combinação de campos).
+                const existingRecords = await pb.collection('full_analysis_report').getFullList({
+                    filter: `date = "${report.date}"`,
+                    fields: 'id' // Busca apenas o ID para otimizar
+                });
+
+                if (existingRecords.length > 0) {
+                    // Se existir, atualiza o primeiro registro encontrado
+                    await pb.collection('full_analysis_report').update(existingRecords[0].id, report);
+                    console.log(`[DB Service] Relatório para a data ${report.date} atualizado.`);
+                } else {
+                    // Se não existir, cria um novo registro
+                    await pb.collection('full_analysis_report').create(report);
+                    console.log(`[DB Service] Relatório para a data ${report.date} criado.`);
+                }
+            } catch (error) {
+                console.error(`[DB Service] Erro ao salvar relatório para a data ${report.date}:`, error.message);
+                throw error; // Re-lança o erro para que o job possa tratá-lo
+            }
+        }, Promise.resolve()); // Invoca a função assíncrona imediatamente
+    }
+
+    await Promise.all(upsertPromises);
+    console.log('[DB Service] Todos os relatórios de análise processados.');
 }

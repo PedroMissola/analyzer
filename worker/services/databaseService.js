@@ -11,37 +11,30 @@ export async function authenticate() {
         if (authErr.status === 404) {
             console.error("Verifique se sua coleção de usuários realmente se chama 'users'.");
         }
-        throw authErr; // Re-lança para parar a execução
+        throw authErr;
     }
 }
 
 async function clearCollection(collectionName) {
-    const idsToDelete = (await pb.collection(collectionName).getFullList({ fields: 'id' })).map(r => r.id);
+    console.log(`Limpando coleção ${collectionName}...`);
+    const items = await pb.collection(collectionName).getFullList({ fields: 'id' });
+    const deletePromises = items.map(item => pb.collection(collectionName).delete(item.id));
     
-    const deletePromises = [];
-    for (const id of idsToDelete) {
-        deletePromises.push(pb.collection(collectionName).delete(id));
-    }
-    
-    if (deletePromises.length > 0) {
-        await Promise.all(deletePromises);
-    }
-    return deletePromises.length;
+    await Promise.all(deletePromises);
+    console.log(`${items.length} registros deletados de ${collectionName}.`);
+    return items.length;
 }
 
 async function createRecords(collectionName, records) {
     console.log(`Inserindo ${records.length} registros em '${collectionName}'...`);
-    const createPromises = [];
-    for (const record of records) {
-        createPromises.push(pb.collection(collectionName).create(record));
-    }
+    const createPromises = records.map(record => pb.collection(collectionName).create(record));
     await Promise.all(createPromises);
+    console.log(`Inserção em ${collectionName} concluída.`);
 }
 
 export async function syncData(hourlyRecords, dailyRecords) {
     console.log('Salvando dados no PocketBase...');
     
-    // Parte 1: Limpar coleções antigas
     console.log('Limpando coleções antigas...');
     const [hourlyDeleted, dailyDeleted] = await Promise.all([
         clearCollection('hourly_data'),
@@ -49,7 +42,6 @@ export async function syncData(hourlyRecords, dailyRecords) {
     ]);
     console.log(`Coleções antigas limpas (removidos ${hourlyDeleted + dailyDeleted} registros).`);
     
-    // Parte 2: Inserir novos dados
     console.log('Inserindo novos dados...');
     await Promise.all([
         createRecords('hourly_data', hourlyRecords),

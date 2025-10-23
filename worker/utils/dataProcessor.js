@@ -27,7 +27,6 @@ export function processApiData(forecastData, airQualityData) {
         }
 
         hourlyRecords.push({
-            // ID foi removido para deixar o PocketBase gerenciar
             timestamp: timestamp.toISOString(),
             temperature: forecastData.hourly.temperature_2m[index],
             apparent_temperature: forecastData.hourly.apparent_temperature[index],
@@ -53,7 +52,6 @@ export function processApiData(forecastData, airQualityData) {
     for (let i = 0; i < forecastData.daily.time.length; i++) {
         const dateStr = forecastData.daily.time[i];
         dailyRecords.push({
-            // ID foi removido
             date: dateStr,
             temp_max: forecastData.daily.temperature_2m_max[i],
             temp_min: forecastData.daily.temperature_2m_min[i],

@@ -6,7 +6,7 @@ import {
     latitude,
     longitude,
     timezone
-} from '../config.js';
+} from '../configs/config.js';
 
 export async function fetchWeatherData() {
     console.log('Buscando dados das APIs Open-Meteo...');
@@ -33,7 +33,6 @@ export async function fetchWeatherData() {
         hourly: 'european_aqi'
     };
 
-    // Faz as chamadas em paralelo
     const [forecastResponse, airQualityResponse] = await Promise.all([
         axios.get(forecastApiUrl, { params: forecastParams }),
         axios.get(airQualityApiUrl, { params: airQualityParams })
@@ -50,13 +49,11 @@ export async function triggerAnalysisHook(hookUrl, authToken) {
     try {
         console.log('Disparando hook de análise...');
         
-        // Se a rota for protegida, ela precisará do token
         const config = authToken ? { headers: { 'Authorization': authToken } } : {};
         
         await axios.get(hookUrl, config);
         console.log('Hook de análise disparado com sucesso.');
     } catch (hookErr) {
         console.error('Erro ao disparar hook de análise:', hookErr.message);
-        // Não para a execução principal se o hook falhar
     }
 }

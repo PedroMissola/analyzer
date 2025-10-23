@@ -1,5 +1,5 @@
 FROM alpine:3.18 AS downloader
-ARG PB_VERSION="0.22.18" # Você pode atualizar esta versão se precisar
+ARG PB_VERSION="0.22.18"
 ENV PB_VERSION=${PB_VERSION}
 RUN apk add --no-cache wget unzip ca-certificates
 RUN wget -O /tmp/pb.zip "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip"
