@@ -1,5 +1,5 @@
-import pb from '../pbClient.js';
-import { pbAdminEmail, pbAdminPassword } from '../config.js';
+import pb from '../configs/pbClient.js';
+import { pbAdminEmail, pbAdminPassword } from '../configs/config.js';
 
 export async function authenticate() {
     console.log('Autenticando no PocketBase como usuário de serviço...');

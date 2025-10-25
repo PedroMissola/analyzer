@@ -1,4 +1,4 @@
-import pb from './pbClient.js';
+import pb from './configs/pbClient.js';
 import { fetchWeatherData } from './services/apiService.js';
 import { processApiData } from './utils/dataProcessor.js';
 import { authenticate, syncData } from './services/databaseService.js';

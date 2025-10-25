@@ -1,25 +1,22 @@
-/**
- * Orquestrador principal da lógica de análise (Etapas 1-5).
- * Recebe dados brutos e retorna os relatórios completos.
- */
-export async function runAnalysisEngine(hourlyData, dailyData) {
+// analyzer/logic/analysisEngine.js
+import { enrichData } from './1_dataEnrichment.js';
+import { calculateScores } from './2_scoreCalculator.js';
+import { analyzeTemporalContext } from './3_temporalAnalysis.js';
+import { generateReports } from './4_reportGenerator.js';
+
+export function runAnalysisEngine(hourlyData, dailyData) {
     console.log('[AnalysisEngine] Iniciado.');
     
-    // 1. Pré-processamento e Enriquecimento
-    // const enrichedData = enrichData(hourlyData, dailyData);
-    
-    // 2. Cálculo dos Scores
-    // const scoredData = calculateScores(enrichedData);
-    
-    // 3. Análise Temporal
-    // const contextualData = analyzeTemporalContext(scoredData);
-    
-    // 4. Geração de Recomendações
-    // const finalReports = generateReports(contextualData);
+    try {
+        const enrichedDataMap = enrichData(hourlyData, dailyData);
+        const scoredDataMap = calculateScores(enrichedDataMap);
+        const contextualDataMap = analyzeTemporalContext(scoredDataMap);
+        const finalReports = generateReports(contextualDataMap);
 
-    // Por enquanto, retornamos um array vazio
-    const finalReports = [];
-
-    console.log('[AnalysisEngine] Finalizado.');
-    return finalReports;
+        console.log('[AnalysisEngine] Finalizado com sucesso.');
+        return finalReports;
+    } catch (error) {
+        console.error('[AnalysisEngine] Falha durante a execução do motor de análise:', error);
+        throw error;
+    }
 }

@@ -5,34 +5,26 @@ import { authenticate, fetchRawData, saveAnalysisReport } from './services/datab
 import { runAnalysisEngine } from './logic/analysisEngine.js';
 
 export async function runAnalyzerJob() {
-    console.log(`[${new Date().toISOString()}] Iniciando job de ANÁLISE...`);
-    
+    const jobTimestamp = new Date().toISOString();
+    console.log(`[AnalyzerJob] [${jobTimestamp}] Iniciando job de análise...`);
+
     try {
-        // --- 1. Autenticar ---
         await authenticate();
-        
-        // --- 2. Buscar Dados Brutos ---
-        // SUBSTITUÍDO: Agora chama a função real
+
         const { hourlyData, dailyData } = await fetchRawData();
 
-        // --- 3. Rodar Motor de Análise ---
-        // (Por enquanto, vamos apenas simular essa etapa)
-        // Passamos os dados reais para o motor de análise
         const analysisResults = await runAnalysisEngine(hourlyData, dailyData);
-        console.log('[Job] Etapa 2: Motor de análise (Simulado)');
 
-        // --- 4. Salvar Relatórios ---
-        // (Por enquanto, vamos apenas simular essa etapa)
         await saveAnalysisReport(analysisResults);
-        console.log('[Job] Etapa 3: Salvamento de relatórios (Simulado)');
-        
+
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] Erro grave no job de ANÁLISE:`, error.message);
+        console.error(`[AnalyzerJob] [${jobTimestamp}] Erro grave no job de análise:`, error.message);
         if (error.data) {
-            console.error("Dados do Erro:", JSON.stringify(error.data, null, 2));
+            console.error("[AnalyzerJob] Dados do erro:", JSON.stringify(error.data, null, 2));
         }
+        console.error("[AnalyzerJob] Stack trace:", error.stack || "N/A");
     } finally {
         pb.authStore.clear();
-        console.log(`[${new Date().toISOString()}] Job de ANÁLISE finalizado.`);
+        console.log(`[AnalyzerJob] [${jobTimestamp}] Job de análise finalizado.`);
     }
 }
