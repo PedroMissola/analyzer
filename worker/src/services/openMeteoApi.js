@@ -1,3 +1,5 @@
+// src/services/openMeteoApi.js
+
 import axios from 'axios';
 import { format, addDays, subDays } from 'date-fns';
 import {
@@ -6,10 +8,17 @@ import {
     latitude,
     longitude,
     timezone
-} from '../configs/config.js';
+} from '../config/index.js';
 
+/**
+ * Busca os dados de previsão do tempo e qualidade do ar das APIs Open-Meteo.
+ */
 export async function fetchWeatherData() {
-    console.log('Buscando dados das APIs Open-Meteo...');
+    console.log('[API] Buscando dados das APIs Open-Meteo...');
+
+    if (!latitude || !longitude) {
+        throw new Error('[API] Latitude e Longitude não foram configuradas nas variáveis de ambiente.');
+    }
 
     const today = new Date();
     const startDate = format(subDays(today, 3), 'yyyy-MM-dd');
@@ -33,27 +42,22 @@ export async function fetchWeatherData() {
         hourly: 'european_aqi'
     };
 
-    const [forecastResponse, airQualityResponse] = await Promise.all([
-        axios.get(forecastApiUrl, { params: forecastParams }),
-        axios.get(airQualityApiUrl, { params: airQualityParams })
-    ]);
-
-    console.log('Dados recebidos das APIs.');
-    return { 
-        forecastData: forecastResponse.data, 
-        airQualityData: airQualityResponse.data 
-    };
-}
-
-export async function triggerAnalysisHook(hookUrl, authToken) {
     try {
-        console.log('Disparando hook de análise...');
-        
-        const config = authToken ? { headers: { 'Authorization': authToken } } : {};
-        
-        await axios.get(hookUrl, config);
-        console.log('Hook de análise disparado com sucesso.');
-    } catch (hookErr) {
-        console.error('Erro ao disparar hook de análise:', hookErr.message);
+        const [forecastResponse, airQualityResponse] = await Promise.all([
+            axios.get(forecastApiUrl, { params: forecastParams }),
+            axios.get(airQualityApiUrl, { params: airQualityParams })
+        ]);
+
+        console.log('[API] Dados recebidos com sucesso.');
+        return {
+            forecastData: forecastResponse.data,
+            airQualityData: airQualityResponse.data
+        };
+    } catch (error) {
+        console.error('[API] Erro ao buscar dados das APIs Open-Meteo:', error.message);
+        if (error.response?.data) {
+            console.error("Detalhes do Erro da API:", JSON.stringify(error.response.data, null, 2));
+        }
+        throw error;
     }
 }

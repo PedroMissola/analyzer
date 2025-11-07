@@ -1,8 +1,6 @@
 // --- 1. Ler Configurações do Ambiente ---
 
-export const pbUrl = process.env.POCKETBASE_URL || 'http://pocketbase:8090';
-export const pbAdminEmail = process.env.PB_ADMIN_EMAIL;
-export const pbAdminPassword = process.env.PB_ADMIN_PASSWORD;
+export const mongoUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/weather-data';
 
 export const cronSchedule = process.env.ANALYZER_CRON_SCHEDULE || '5 * * * *'; 
 export const timezone = process.env.TZ || 'America/Sao_Paulo';

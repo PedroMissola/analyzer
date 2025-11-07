@@ -1,7 +1,6 @@
 // analyzer/job.js
 
-import pb from './pbClient.js';
-import { authenticate, fetchRawData, saveAnalysisReport } from './services/databaseService.js';
+import { connectToDatabase, fetchRawData, saveAnalysisReport, getLatestAnalysis } from './services/databaseService.js';
 import { runAnalysisEngine } from './logic/analysisEngine.js';
 
 export async function runAnalyzerJob() {
@@ -9,7 +8,7 @@ export async function runAnalyzerJob() {
     console.log(`[AnalyzerJob] [${jobTimestamp}] Iniciando job de análise...`);
 
     try {
-        await authenticate();
+        await connectToDatabase();
 
         const { hourlyData, dailyData } = await fetchRawData();
 
@@ -23,8 +22,11 @@ export async function runAnalyzerJob() {
             console.error("[AnalyzerJob] Dados do erro:", JSON.stringify(error.data, null, 2));
         }
         console.error("[AnalyzerJob] Stack trace:", error.stack || "N/A");
-    } finally {
-        pb.authStore.clear();
-        console.log(`[AnalyzerJob] [${jobTimestamp}] Job de análise finalizado.`);
     }
+}
+
+export async function getAnalysisFromDb() {
+    await connectToDatabase();
+    const analysis = await getLatestAnalysis();
+    return analysis;
 }

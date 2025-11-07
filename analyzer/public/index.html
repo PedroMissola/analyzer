@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Analysis</title>
+    <style>
+        body { font-family: sans-serif; }
+        #results { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Weather Analysis</h1>
+    <button id="analyzeBtn">Run Analysis</button>
+    <h2>Results:</h2>
+    <div id="results"></div>
+
+    <script>
+        document.getElementById('analyzeBtn').addEventListener('click', () => {
+            fetch('/analysis')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('results').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('results').textContent = `Error: ${error.message}`;
+                });
+        });
+    </script>
+</body>
+</html>

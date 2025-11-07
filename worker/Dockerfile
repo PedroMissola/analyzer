@@ -20,6 +20,8 @@ COPY --from=builder --chown=appuser:appgroup /usr/src/app ./
 
 USER appuser
 
+EXPOSE 3001
+
 ENV TZ="America/Sao_Paulo"
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]

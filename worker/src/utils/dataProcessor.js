@@ -1,20 +1,21 @@
+// src/utils/dataProcessor.js
+
 import { parseISO, getUnixTime } from 'date-fns';
 
+/**
+ * Processa os dados brutos da API e os transforma em registros para o banco de dados.
+ */
 export function processApiData(forecastData, airQualityData) {
-    console.log('Processando dados recebidos...');
+    console.log('[Processor] Processando dados recebidos das APIs...');
 
-    if (!forecastData || !forecastData.hourly || !forecastData.daily ||
-        !airQualityData || !airQualityData.hourly) {
-        throw new Error('Formato inesperado na resposta da API Open-Meteo.');
+    if (!forecastData?.hourly?.time || !forecastData?.daily?.time || !airQualityData?.hourly?.time) {
+        throw new Error('[Processor] Formato inesperado ou dados ausentes na resposta da API.');
     }
 
-    const timeIndexMap = new Map();
-    forecastData.hourly.time.forEach((ts, index) => { timeIndexMap.set(ts, index); });
-    const airQualityTimeIndexMap = new Map();
-    airQualityData.hourly.time.forEach((ts, index) => { airQualityTimeIndexMap.set(ts, index); });
+    const timeIndexMap = new Map(forecastData.hourly.time.map((ts, index) => [ts, index]));
+    const airQualityTimeIndexMap = new Map(airQualityData.hourly.time.map((ts, index) => [ts, index]));
 
-    const hourlyRecords = [];
-    for (const timestampStr of forecastData.hourly.time) {
+    const hourlyRecords = forecastData.hourly.time.map(timestampStr => {
         const index = timeIndexMap.get(timestampStr);
         const aqIndex = airQualityTimeIndexMap.get(timestampStr);
         const timestamp = parseISO(timestampStr);
@@ -26,7 +27,7 @@ export function processApiData(forecastData, airQualityData) {
             precipitation_type = 'snow';
         }
 
-        hourlyRecords.push({
+        return {
             timestamp: timestamp.toISOString(),
             temperature: forecastData.hourly.temperature_2m[index],
             apparent_temperature: forecastData.hourly.apparent_temperature[index],
@@ -45,21 +46,17 @@ export function processApiData(forecastData, airQualityData) {
             aqi: (aqIndex !== undefined && airQualityData.hourly.european_aqi[aqIndex] !== null)
                 ? airQualityData.hourly.european_aqi[aqIndex]
                 : null
-        });
-    }
+        };
+    });
 
-    const dailyRecords = [];
-    for (let i = 0; i < forecastData.daily.time.length; i++) {
-        const dateStr = forecastData.daily.time[i];
-        dailyRecords.push({
-            date: dateStr,
-            temp_max: forecastData.daily.temperature_2m_max[i],
-            temp_min: forecastData.daily.temperature_2m_min[i],
-            sunrise_ts: getUnixTime(parseISO(forecastData.daily.sunrise[i])),
-            sunset_ts: getUnixTime(parseISO(forecastData.daily.sunset[i]))
-        });
-    }
+    const dailyRecords = forecastData.daily.time.map((dateStr, i) => ({
+        date: dateStr,
+        temp_max: forecastData.daily.temperature_2m_max[i],
+        temp_min: forecastData.daily.temperature_2m_min[i],
+        sunrise_ts: getUnixTime(parseISO(forecastData.daily.sunrise[i])),
+        sunset_ts: getUnixTime(parseISO(forecastData.daily.sunset[i]))
+    }));
 
-    console.log(`Processados ${hourlyRecords.length} registros horários e ${dailyRecords.length} registros diários.`);
+    console.log(`[Processor] Processados ${hourlyRecords.length} registros horários e ${dailyRecords.length} registros diários.`);
     return { hourlyRecords, dailyRecords };
 }

@@ -17,6 +17,8 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder --chown=appuser:appgroup /usr/src/app ./
 USER appuser
 
+EXPOSE 3000
+
 ENV TZ="America/Sao_Paulo"
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD [ "node", "index.js" ]

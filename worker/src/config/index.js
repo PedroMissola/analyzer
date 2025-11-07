@@ -1,8 +1,6 @@
-// --- 1. Ler Configurações do Ambiente ---
+// src/config/index.js
 
-export const pbUrl = process.env.POCKETBASE_URL || 'http://pocketbase:8090';
-export const pbAdminEmail = process.env.PB_ADMIN_EMAIL;
-export const pbAdminPassword = process.env.PB_ADMIN_PASSWORD;
+export const mongoUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/weather-data';
 
 export const cronSchedule = process.env.WORKER_CRON_SCHEDULE || '0 5 * * *';
 export const timezone = process.env.TZ || 'America/Sao_Paulo';
@@ -12,4 +10,5 @@ export const longitude = process.env.LOCATION_LONGITUDE;
 
 export const forecastApiUrl = process.env.OPEN_METEO_FORECAST_URL || 'https://api.open-meteo.com/v1/forecast';
 export const airQualityApiUrl = process.env.OPEN_METEO_AIR_QUALITY_URL || 'https://air-quality-api.open-meteo.com/v1/air-quality';
-export const analysisHookUrl = `${pbUrl}/api/custom/run-scorer`;
+
+export const port = process.env.WORKER_PORT || 3001;
