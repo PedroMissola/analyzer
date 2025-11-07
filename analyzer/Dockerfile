@@ -4,9 +4,9 @@
 FROM node:18.19.1-alpine AS builder
 WORKDIR /usr/src/app
 COPY package*.json ./
-# Instala TODAS as dependências (para nodemon)
 RUN npm ci
-COPY . .
+COPY src ./src
+COPY public ./public
 
 # --- ESTÁGIO 2: "Production" ---
 FROM alpine:3.18
@@ -21,4 +21,4 @@ EXPOSE 3000
 
 ENV TZ="America/Sao_Paulo"
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD [ "node", "index.js" ]
+CMD [ "npm", "start" ]
