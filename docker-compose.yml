@@ -7,10 +7,26 @@ volumes:
     driver: local
 
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - worker
+      - analyzer
+    networks:
+      - app-network
+
   mongo:
     image: mongo:latest
     container_name: mongo-db
     restart: unless-stopped
+    ports:
+      - "27018:27017"
     volumes:
       - mongo_data:/data/db
     networks:
@@ -39,8 +55,6 @@ services:
       dockerfile: Dockerfile
     container_name: worker-service
     restart: unless-stopped
-    ports:
-      - "3001:${WORKER_PORT:-3001}"
     environment:
       - MONGO_URL=mongodb://mongo:27017/weather-data
       - WORKER_CRON_SCHEDULE=${WORKER_CRON_SCHEDULE}
@@ -60,8 +74,6 @@ services:
       dockerfile: Dockerfile
     container_name: analyzer-service
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       - MONGO_URL=mongodb://mongo:27017/weather-data
     depends_on:

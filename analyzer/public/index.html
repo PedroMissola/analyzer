@@ -3,27 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Analysis</title>
+    <title>Weather Analysis Engine</title>
     <style>
-        body { font-family: sans-serif; }
-        #results { white-space: pre-wrap; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 20px auto; padding: 0 15px; background-color: #f4f4f9; }
+        h1, h2 { color: #1a1a1a; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 16px; margin-right: 10px; transition: background-color 0.2s; }
+        button:hover { background-color: #0056b3; }
+        #results { background-color: #e9ecef; border: 1px solid #ced4da; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace; font-size: 14px; margin-top: 20px; max-height: 500px; overflow-y: auto; }
+        .status { margin-top: 15px; font-style: italic; color: #555; }
     </style>
 </head>
 <body>
-    <h1>Weather Analysis</h1>
-    <button id="analyzeBtn">Run Analysis</button>
-    <h2>Results:</h2>
-    <div id="results"></div>
+    <div class="container">
+        <h1>Weather Analysis Engine - Control Panel</h1>
+        
+        <button id="runJobBtn">Run Analysis Job</button>
+        <button id="fetchReportsBtn">Fetch Latest Reports</button>
+        
+        <div id="status" class="status"></div>
+
+        <h2>Results:</h2>
+        <div id="results">Click 'Fetch Latest Reports' to see the analysis.</div>
+    </div>
 
     <script>
-        document.getElementById('analyzeBtn').addEventListener('click', () => {
-            fetch('/analysis')
+        const runJobBtn = document.getElementById('runJobBtn');
+        const fetchReportsBtn = document.getElementById('fetchReportsBtn');
+        const resultsDiv = document.getElementById('results');
+        const statusDiv = document.getElementById('status');
+
+        // Botão para acionar o job de análise
+        runJobBtn.addEventListener('click', () => {
+            statusDiv.textContent = 'Requesting analysis job to start...';
+            resultsDiv.textContent = '';
+            fetch('/api/jobs/analysis/run', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('results').textContent = JSON.stringify(data, null, 2);
+                    statusDiv.textContent = `Success: ${data.message} (Timestamp: ${new Date().toLocaleTimeString()})`;
                 })
                 .catch(error => {
-                    document.getElementById('results').textContent = `Error: ${error.message}`;
+                    statusDiv.textContent = `Error starting job: ${error.message}`;
+                });
+        });
+
+        // Botão para buscar os relatórios
+        fetchReportsBtn.addEventListener('click', () => {
+            statusDiv.textContent = 'Fetching latest reports...';
+            resultsDiv.textContent = 'Loading...';
+            fetch('/api/reports')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    resultsDiv.textContent = JSON.stringify(data, null, 2);
+                    statusDiv.textContent = `Reports loaded successfully. (Timestamp: ${new Date().toLocaleTimeString()})`;
+                })
+                .catch(error => {
+                    resultsDiv.textContent = `Error fetching reports: ${error.message}\n\nHave you run the worker and analyzer jobs at least once?`;
+                    statusDiv.textContent = 'Failed to load reports.';
                 });
         });
     </script>
