@@ -15,9 +15,8 @@ services:
       - mongo_data:/data/db
     networks:
       - app-network
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+    env_file:
+      - ./.env
 
   mongo-express:
     image: mongo-express
@@ -26,13 +25,13 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_ROOT_USER}
-      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_ROOT_PASSWORD}
       - ME_CONFIG_MONGODB_SERVER=mongo
     depends_on:
       - mongo
     networks:
       - app-network
+    env_file:
+      - ./.env
 
   worker:
     build:
@@ -41,22 +40,18 @@ services:
     container_name: worker-service
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "3001:${WORKER_PORT:-3001}"
     environment:
       - MONGO_URL=mongodb://mongo:27017/weather-data
-      - LOCATION_LATITUDE=${LOCATION_LATITUDE}
-      - LOCATION_LONGITUDE=${LOCATION_LONGITUDE}
-      - OPEN_METEO_FORECAST_URL=${OPEN_METEO_FORECAST_URL}
-      - OPEN_METEO_AIR_QUALITY_URL=${OPEN_METEO_AIR_QUALITY_URL}
-      - ALERT_EMAIL_RECIPIENT=${ALERT_EMAIL_RECIPIENT}
-      - TZ=${TZ}
+      - WORKER_CRON_SCHEDULE=${WORKER_CRON_SCHEDULE}
     depends_on:
       - mongo
     networks:
       - app-network
+    env_file:
+      - ./.env
     volumes:
-      - ./worker:/app
-      - /app/node_modules
+      - ./worker/src:/app/src
     command: npm run dev
 
   analyzer:
@@ -69,13 +64,12 @@ services:
       - "3000:3000"
     environment:
       - MONGO_URL=mongodb://mongo:27017/weather-data
-      - LOCATION_LATITUDE=${LOCATION_LATITUDE}
-      - LOCATION_LONGITUDE=${LOCATION_LONGITUDE}
-      - TZ=${TZ}
     depends_on:
       - mongo
     networks:
       - app-network
+    env_file:
+      - ./.env
     volumes:
       - ./analyzer:/app
       - /app/node_modules

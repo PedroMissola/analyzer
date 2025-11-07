@@ -6,7 +6,7 @@ COPY package*.json ./
 
 RUN npm ci
 
-COPY . .
+COPY src ./src
 
 FROM alpine:3.18
 
@@ -26,4 +26,4 @@ ENV TZ="America/Sao_Paulo"
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-CMD [ "node", "index.js" ]
+CMD [ "npm", "start" ]
