@@ -36,7 +36,7 @@ O projeto é composto por dois serviços principais (`Worker` e `Analyzer`), um 
       * Roteia requisições `locahost/` para o `Analyzer` (UI e API de relatórios).
       * Roteia requisições `localhost/worker/` para a API do `Worker` (ex: `localhost/worker/health`).
 
-4.  **`Mongo` **
+4.  **`Mongo`**
 
       * `mongo`: Instância do banco de dados MongoDB para persistência dos dados.
 
