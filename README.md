@@ -2,67 +2,56 @@
 
 Este projeto é um sistema de análise meteorológica automatizado, projetado para transformar dados brutos de previsão do tempo em relatórios acionáveis e pontuações de "qualidade do dia".
 
-O sistema é dividido em microsserviços (um `worker` para coleta e um `analyzer` para análise) e orquestrado via Docker Compose. Ele utiliza o [PocketBase](https://pocketbase.io/) como um backend (BaaS) leve para armazenamento de dados e o Nginx como reverse proxy.
+O sistema é dividido em microsserviços (um `worker` para coleta e um `analyzer` para análise) e orquestrado via Docker Compose. Ele utiliza o **MongoDB** como banco de dados e o **Mongo Express** para gerenciamento via interface web.
 
 ## Funcionalidades Principais
 
-* **Coleta Automatizada:** Um serviço `worker` busca dados de previsão do tempo (incluindo qualidade do ar) da API Open-Meteo em intervalos definidos (via cron job).
-* **Motor de Análise Multi-etapa:** O serviço `analyzer` processa os dados brutos em um pipeline de 4 etapas:
+*   **Coleta Automatizada:** Um serviço `worker` busca dados de previsão do tempo (incluindo qualidade do ar) da API Open-Meteo em intervalos definidos (via cron job).
+*   **Motor de Análise em Pipeline:** O serviço `analyzer` processa os dados brutos em um pipeline de 4 estágios:
     1.  **Enriquecimento:** Agrega dados horários em períodos relevantes (lazer, trabalho, riscos).
     2.  **Pontuação (Scoring):** Aplica regras de negócios e pesos complexos para calcular scores para "Piscina/Lazer" (`pool`), "Trabalho/Produtividade" (`work`) e "Riscos" (`risk`).
     3.  **Análise Temporal:** Avalia tendências (melhora/piora) e volatilidade (estabilidade) em uma janela de 7 dias.
     4.  **Geração de Relatório:** Cria uma classificação final (ex: "Excelente dia para lazer") e recomendações acionáveis (ex: "Use protetor solar").
-* **Containerizado:** Todos os serviços (PocketBase, Worker, Analyzer, Nginx) são definidos no `docker-compose.yml` para fácil implantação.
-* **Persistência de Dados:** O PocketBase armazena os dados brutos coletados e os relatórios finais gerados pela análise.
+*   **API de Relatórios:** O `analyzer` expõe uma API REST (`GET /api/reports`) para que sistemas externos (como interfaces gráficas) possam consumir os relatórios de análise em formato JSON.
+*   **Containerizado:** Todos os serviços (MongoDB, Mongo Express, Worker, Analyzer) são definidos no `docker-compose.yml` para fácil implantação e escalabilidade.
 
 ## Arquitetura e Fluxo de Dados
 
 O sistema é composto por quatro serviços principais orquestrados pelo `docker-compose.yml`:
 
-1.  **`pocketbase`**:
-    * O banco de dados e backend (BaaS).
-    * Armazena os dados brutos em coleções (`hourly_data`, `daily_data`).
-    * Armazena os relatórios finais na coleção `full_analysis_report`.
+1.  **`mongo`**:
+    *   O banco de dados principal do sistema.
+    *   Armazena os dados brutos nas coleções `hourly_data` e `daily_data`.
+    *   Armazena os relatórios finais na coleção `analysis_reports`.
 
-2.  **`nginx`**:
-    * Atua como reverse proxy para o serviço `pocketbase`.
-    * Expõe a interface de administração e a API do PocketBase na porta `80`.
+2.  **`mongo-express`**:
+    *   Uma interface de administração baseada na web para o MongoDB.
+    *   Permite visualizar e gerenciar os dados diretamente nas coleções.
 
 3.  **`worker` (O Coletor):**
-    * É um serviço Node.js que roda em um agendamento `cron` (definido por `WORKER_CRON_SCHEDULE`).
-    * **Função:** Busca dados das APIs do Open-Meteo (previsão e qualidade do ar).
-    * Processa e formata os dados (`dataProcessor.js`).
-    * Limpa os dados antigos e salva os novos dados brutos no PocketBase (`databaseService.js`).
+    *   Serviço Node.js que roda em um agendamento `cron` (definido por `WORKER_CRON_SCHEDULE`).
+    *   **Função:** Busca dados das APIs do Open-Meteo.
+    *   Processa e formata os dados brutos.
+    *   Sincroniza os dados no MongoDB usando uma estratégia **"upsert"**, que insere novos registros e atualiza os existentes, garantindo a integridade e evitando duplicatas.
 
 4.  **`analyzer` (O Cérebro):**
-    * É um serviço Node.js que também roda em um agendamento `cron` (definido por `ANALYZER_CRON_SCHEDULE`). Idealmente, ele deve rodar *após* o `worker`.
-    * **Função:** Executa o motor de análise (`analysisEngine.js`).
-    * Busca os dados brutos que o `worker` salvou no PocketBase.
-    * Executa o pipeline de análise (Enriquecimento -> Pontuação -> Análise Temporal -> Geração de Relatório).
-    * Salva o relatório final (com scores, classificação e recomendações) de volta no PocketBase, utilizando uma lógica "upsert" (atualiza se existe, cria se não).
+    *   Serviço Node.js que também roda em um agendamento `cron` (definido por `ANALYZER_CRON_SCHEDULE`). Idealmente, ele deve rodar *após* o `worker`.
+    *   **Função:** Executa o `AnalysisPipeline`.
+    *   Busca os dados brutos que o `worker` salvou no MongoDB.
+    *   Executa o pipeline de análise (Enriquecimento -> Pontuação -> Análise Temporal -> Geração de Relatório).
+    *   Salva o relatório final na coleção `analysis_reports`, também com uma lógica "upsert".
 
-## O Motor de Análise (`analyzer/logic/`)
+## O Pipeline de Análise (`analyzer/src/analysis/`)
 
-O núcleo do projeto reside na lógica do `analyzer`, que é dividida em etapas claras:
+O núcleo do projeto reside na lógica do `analyzer`, que foi refatorada em um pipeline coeso e modular:
 
-1.  **`1_dataEnrichment.js`**:
-    * Define os períodos de tempo de interesse (ex: `POOL_DEFAULT_START_HOUR`, `WORK_START_HOUR`).
-    * Agrega os dados horários brutos (ex: média de temperatura, rajada máxima de vento) dentro dessas janelas (`pool_period`, `work_period`, `risk_period`).
+1.  **`pipeline.js`**: Orquestra a execução sequencial de cada estágio da análise.
+    *   **Estágio 1: Enriquecimento de Dados:** Agrega os dados horários brutos (ex: média de temperatura, rajada máxima de vento) dentro de janelas de tempo relevantes (`pool_period`, `work_period`, `risk_period`).
+    *   **Estágio 2: Cálculo de Score:** Utiliza as regras e pesos definidos em `rules/scoreRules.js` para pontuar cada período.
+    *   **Estágio 3: Análise Temporal:** Analisa os scores em uma janela móvel de 7 dias para determinar tendências (`trend`) e volatilidade (`volatility_label`).
+    *   **Estágio 4: Geração de Relatório:** Usa os scores finais para atribuir uma classificação geral e gerar recomendações contextuais.
 
-2.  **`2_scoreCalculator.js`**:
-    * Contém as regras de negócio e pesos (`scoreConfigs`) para pontuar cada período.
-    * **`pool` (Lazer):** Leva em conta temperatura, sensação térmica, vento, ponto de orvalho, UV, nuvens, etc.
-    * **`work` (Trabalho):** Focado em conforto térmico, vento, pressão atmosférica, qualidade do ar (AQI).
-    * **`risk` (Risco):** Aplica penalidades severas para condições extremas (vento > 50km/h, raios, AQI > 150, temperaturas extremas).
-
-3.  **`3_temporalAnalysis.js`**:
-    * Analisa os scores em uma janela móvel (ex: 3 dias antes e 3 dias depois) para determinar tendências.
-    * Calcula a `trend` (tendência: "improving", "deteriorating", "stable") e a `volatility_label` (volatilidade: "estável", "moderada", "alta").
-    * Pode aplicar pequenas penalidades ao score do dia se a tendência for de piora.
-
-4.  **`4_reportGenerator.js`**:
-    * Utiliza os scores finais para atribuir uma classificação geral (`getOverallClassification`), como "Excelente dia para lazer ao ar livre" ou "Dia com condições adversas - cuidado".
-    * Gera recomendações contextuais (`getRecommendations`) com base em gatilhos específicos (ex: se `max_uv > 8`, recomenda protetor solar).
+2.  **`rules/scoreRules.js`**: Isola as complexas regras de negócio e pesos, facilitando a manutenção e o ajuste fino dos cálculos de pontuação.
 
 ## Como Executar
 
@@ -73,38 +62,51 @@ O núcleo do projeto reside na lógica do `analyzer`, que é dividida em etapas 
     ```
 
 2.  **Configurar Variáveis de Ambiente:**
-    Crie um arquivo `.env` na raiz do projeto. Ele é necessário para alimentar os serviços no `docker-compose.yml`.
+    Crie um arquivo `.env` na raiz do projeto, baseado no exemplo abaixo. Ele é essencial para alimentar os serviços no `docker-compose.yml`.
 
     ```.env
     # Fuso horário para os cron jobs e logs
     TZ=America/Sao_Paulo
 
-    # Credenciais de admin para o PocketBase (criação automática)
-    PB_ADMIN_EMAIL=admin@example.com
-    PB_ADMIN_PASSWORD=seu_password_seguro_aqui
+    # --- Credenciais do Banco de Dados ---
+    MONGO_ROOT_USER=admin
+    MONGO_ROOT_PASSWORD=password
 
-    # Agendamento dos serviços (formato cron)
-    # Ex: '5 * * * *' = Aos 5 minutos de toda hora
-    WORKER_CRON_SCHEDULE=0 5 * * *
-    # Ex: '10 * * * *' = Aos 10 minutos de toda hora (deve ser DEPOIS do worker)
-    ANALYZER_CRON_SCHEDULE=10 5 * * *
+    # --- Agendamento dos Serviços (formato cron) ---
+    WORKER_CRON_SCHEDULE='0 5 * * *'
+    ANALYZER_CRON_SCHEDULE='10 5 * * *'
 
-    # Coordenadas para a API de previsão do tempo
+    # --- Configurações de Localização ---
     LOCATION_LATITUDE=-22.9056
     LOCATION_LONGITUDE=-47.0608
+
+    # --- Endpoints de API (padrões) ---
+    OPEN_METEO_FORECAST_URL=https://api.open-meteo.com/v1/forecast
+    OPEN_METEO_AIR_QUALITY_URL=https://air-quality-api.open-meteo.com/v1/air-quality
+
+    # --- Portas dos Serviços ---
+    WORKER_PORT=3001
     ```
 
 3.  **Iniciar os Serviços:**
+    Execute o Docker Compose para construir as imagens e iniciar os contêineres em modo detached.
     ```bash
     docker-compose up -d --build
     ```
 
-4.  **Acessar:**
-    * **PocketBase Admin UI:** `http://localhost:80` (ou o IP do seu servidor)
-    * Use as credenciais `PB_ADMIN_EMAIL` e `PB_ADMIN_PASSWORD` para logar.
-    * Você precisará criar as coleções (`hourly_data`, `daily_data`, `full_analysis_report`) no PocketBase Admin UI para que os serviços possam salvar os dados.
+4.  **Acessar os Serviços:**
+    *   **Mongo Express UI:** `http://localhost:8081`
+        *   Use as credenciais `MONGO_ROOT_USER` e `MONGO_ROOT_PASSWORD` para logar e visualizar os dados.
+    *   **Analyzer API:** `http://localhost:3000/api/reports`
+        *   Acesse este endpoint para obter os últimos relatórios de análise em JSON.
+    *   **Analyzer UI (Simples):** `http://localhost:3000/`
+        *   Uma página simples para acionar a análise manualmente.
+    *   **Health Checks:**
+        *   Worker: `http://localhost:3001/health`
+        *   Analyzer: `http://localhost:3000/health`
 
 5.  **Verificar os Logs:**
+    Para acompanhar a execução dos jobs e possíveis erros, use os comandos:
     ```bash
     docker-compose logs -f worker
     docker-compose logs -f analyzer
