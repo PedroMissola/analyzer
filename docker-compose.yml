@@ -34,21 +34,6 @@ services:
     env_file:
       - ./.env
 
-  mongo-express:
-    image: mongo-express
-    container_name: mongo-express-ui
-    restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      - ME_CONFIG_MONGODB_SERVER=mongo
-    depends_on:
-      - mongo
-    networks:
-      - app-network
-    env_file:
-      - ./.env
-
   worker:
     build:
       context: ./worker

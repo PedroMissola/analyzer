@@ -36,10 +36,9 @@ O projeto é composto por dois serviços principais (`Worker` e `Analyzer`), um 
       * Roteia requisições `locahost/` para o `Analyzer` (UI e API de relatórios).
       * Roteia requisições `localhost/worker/` para a API do `Worker` (ex: `localhost/worker/health`).
 
-4.  **`Mongo` e `Mongo-Express`**
+4.  **`Mongo` **
 
       * `mongo`: Instância do banco de dados MongoDB para persistência dos dados.
-      * `mongo-express`: Uma interface web para visualização e gerenciamento do banco, disponível em `http://localhost:8081`.
 
 -----
 
@@ -151,11 +150,6 @@ Após os contêineres iniciarem (pode levar alguns segundos), os serviços estar
 
       * `http://localhost:80`
       * (Mapeado pelo Nginx para o serviço `analyzer` na porta 3000)
-
-  * **Mongo Express (UI do DB):**
-
-      * `http://localhost:8081`
-      * (Use as credenciais `MONGO_ROOT_USER` e `MONGO_ROOT_PASSWORD` do `.env` para logar)
 
   * **Health Checks (via Nginx):**
 
