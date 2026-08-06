@@ -1,177 +1,216 @@
-# Weather Analysis Engine
+# Weather Analysis Engine 🌦️
 
-O **Weather Analysis Engine** é um sistema de microsserviços projetado para coletar, armazenar e analisar dados meteorológicos. Ele gera relatórios diários com pontuações (scores) para atividades específicas (como lazer e trabalho) e avalia riscos, fornecendo recomendações e classificações sobre a qualidade do dia.
+O **Weather Analysis Engine** é um sistema de microsserviços projetado para coletar, armazenar e analisar dados meteorológicos de forma automatizada, transformando dados brutos de previsão do tempo em relatórios climáticos detalhados. Ele gera pontuações e avaliações para atividades diárias, como lazer e trabalho, além de identificar riscos potenciais.
 
-## Visão Geral da Arquitetura
+[![Node.js Version](https://img.shields.io/badge/Node.js-v18-blue.svg)](https://nodejs.org/)
+[![JavaScript](https://img.shields.io/badge/Language-JavaScript-yellow.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-O projeto é composto por dois serviços principais (`Worker` e `Analyzer`), um banco de dados (`MongoDB`) e um proxy reverso (`Nginx`), todos orquestrados com `Docker Compose`.
+## 📜 Table of Contents
 
-### Componentes
+- [Project Description](#description)
+- [Key Features](#key-features-✨)
+- [Tech Stack](#tech-stack-🚀)
+- [Project Structure](#project-structure-📂)
+- [Installation](#installation--getting-started-⚙️)
+- [Usage](#usage--how-to-run-▶️)
+- [API Endpoints](#api-reference-api-doc)
+- [Contributing](#contributing-🤝)
+- [License](#license-⚖️)
+- [Footer](#footer-made-with-❤️)
 
-1.  **`Worker` (Serviço de Coleta)**
+## Description 📝
 
-      * **Responsabilidade:** Coletar dados meteorológicos brutos.
-      * **Funcionamento:** Um job agendado (cron) é executado em intervalos definidos (ex: `0 5 * * *` - às 5h da manhã).
-      * Ele busca dados de previsão do tempo e qualidade do ar da API Open-Meteo.
-      * Os dados são processados e transformados em registros horários e diários.
-      * Os registros são salvos (com `upsert`) no MongoDB nas coleções `hourly_data` e `daily_data`.
-      * Expõe um endpoint para acionamento manual: `POST /worker/jobs/weather/run` (acessível via Nginx).
+This project is an automated weather analysis engine designed to process raw weather forecast data into actionable climate reports. It utilizes a microservices architecture with a `Worker` service for data collection and an `Analyzer` service for data processing and report generation. The system is orchestrated using Docker Compose, with a MongoDB instance for data storage and Nginx as a reverse proxy.
 
-2.  **`Analyzer` (Serviço de Análise)**
+## Key Features ✨
 
-      * **Responsabilidade:** Analisar os dados brutos e gerar relatórios.
-      * **Funcionamento:** Também possui um job agendado (cron) que roda *após* o worker (ex: `10 5 * * *` - às 5h10).
-      * Ele lê os dados brutos (`hourly_data`, `daily_data`) do MongoDB.
-      * Executa uma **pipeline de análise** de 4 estágios:
-        1.  **Enriquecimento:** Agrega dados horários em períodos de interesse (lazer, trabalho, risco).
-        2.  **Cálculo de Score:** Pontua (0-5) três categorias (`pool`, `work`, `risk`) com base em regras de pontuação complexas.
-        3.  **Análise Temporal:** Analisa a tendência (melhorando/piorando) e a volatilidade dos scores em uma janela de 7 dias.
-        4.  **Geração de Relatório:** Cria um relatório final com classificação ("Excelente dia para lazer"), recomendações e alertas.
-      * Salva os relatórios na coleção `analysis_reports` no MongoDB.
-      * Serve uma **interface de usuário (UI)** estática e endpoints de API para consultar os relatórios (`GET /api/reports`) e acionar a análise (`POST /api/jobs/analysis/run`).
+- **Automated Data Collection:** Gathers hourly and daily weather data, including forecast and air quality, from the Open-Meteo API.
+- **Intelligent Analysis Pipeline:** Processes raw data through a multi-stage pipeline: data enrichment, score calculation (for pool, work, risk), temporal context analysis (trend, volatility), and final report generation.
+- **Scoring System:** Assigns scores (0-5) and labels to different activity categories based on complex rules.
+- **Risk Assessment:** Identifies and reports potential weather-related risks.
+- **Temporal Context:** Analyzes trends and volatility of weather conditions over a 7-day window.
+- **Microservices Architecture:** Composed of distinct `Worker` and `Analyzer` services for modularity and scalability.
+- **Dockerized Deployment:** Easy setup and management using Docker and Docker Compose.
+- **Scheduled Jobs:** Utilizes `node-cron` for automated data fetching and analysis at defined intervals.
+- **User Interface:** Provides a simple HTML interface for triggering analysis jobs and viewing reports.
 
-3.  **`Nginx` (API Gateway / Proxy Reverso)**
+## Tech Stack 🚀
 
-      * Unifica os serviços sob a porta `80`.
-      * Roteia requisições `locahost/` para o `Analyzer` (UI e API de relatórios).
-      * Roteia requisições `localhost/worker/` para a API do `Worker` (ex: `localhost/worker/health`).
+- **Backend:** Node.js (JavaScript ESM)
+- **Framework:** Express.js
+- **Database:** MongoDB
+- **API Client:** Axios
+- **Scheduling:** `node-cron`
+- **Date Utilities:** `date-fns`
+- **Math Utilities:** `mathjs`
+- **Containerization:** Docker, Docker Compose
+- **Reverse Proxy:** Nginx
+- **Development:** Nodemon
 
-4.  **`Mongo`**
-
-      * `mongo`: Instância do banco de dados MongoDB para persistência dos dados.
-
------
-
-## Estrutura do Projeto
+## Project Structure 📂
 
 ```
-/
-├── analyzer/         # Serviço de análise e UI
-│   ├── public/         # UI (index.html)
-│   ├── src/
-│   │   ├── analysis/   # Lógica central (pipeline, rules, utils)
-│   │   ├── database/   # Conexão com DB
-│   │   ├── jobs/       # Job de análise (cron)
-│   │   ├── repositories/ # Acesso aos dados (reports, weather)
-│   │   ├── config/     # Configurações (portas, cron)
-│   │   ├── index.js    # Ponto de entrada (inicia cron e server)
-│   │   └── server.js   # API Express (health, reports, run job)
-│   ├── Dockerfile
-│   └── package.json
-├── worker/           # Serviço de coleta de dados
-│   ├── src/
-│   │   ├── database/   # Conexão e schema do DB
-│   │   ├── jobs/       # Job de coleta (cron)
-│   │   ├── repositories/ # Acesso aos dados (weather)
-│   │   ├── services/   # Cliente da API Open-Meteo
-│   │   ├── utils/      # Processador dos dados da API
-│   │   ├── config/     # Configurações (API, cron)
-│   │   ├── index.js    # Ponto de entrada (inicia cron e server)
-│   │   └── server.js   # API Express (health, run job)
-│   ├── Dockerfile
-│   └── package.json
-├── nginx/
-│   └── nginx.conf      # Proxy reverso e roteamento
+/ 
+├── .env.example          # Environment variables example
 ├── .gitignore
-├── docker-compose.yml  # Orquestração dos serviços
-└── .env.example        # (Arquivo de exemplo de variáveis de ambiente)
+├── docker-compose.yml    # Docker orchestration
+├── nginx/                # Nginx configuration
+│   └── nginx.conf
+├── analyzer/             # Analysis service and UI
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── public/
+│   │   └── index.html      # Simple User Interface
+│   └── src/
+│       ├── analysis/       # Core analysis logic
+│       │   ├── rules/
+│       │   │   └── scoreRules.js
+│       │   ├── utils.js
+│       │   ├── pipeline.js
+│       ├── config/         # Service configuration
+│       │   └── index.js
+│       ├── database/
+│       │   └── connection.js # DB connection module
+│       ├── jobs/
+│       │   └── analysisJob.js
+│       ├── repositories/
+│       │   ├── analysisRepository.js
+│       │   └── weatherDataRepository.js
+│       ├── index.js        # Service entry point
+│       └── server.js       # Express server setup
+└── worker/               # Data collection service
+    ├── Dockerfile
+    ├── package.json
+    └── src/
+        ├── config/         # Service configuration
+        │   └── index.js
+        ├── database/
+        │   ├── connection.js # DB connection module
+        │   └── schema.js     # DB schema and index management
+        ├── jobs/
+        │   └── weatherJob.js
+        ├── repositories/
+        │   └── weatherRepository.js
+        ├── services/
+        │   └── openMeteoApi.js # API client for weather data
+        ├── utils/
+        │   └── dataProcessor.js
+        ├── index.js        # Service entry point
+        └── server.js       # Express server setup
 ```
 
------
+## Installation & Getting Started ⚙️
 
-## Tecnologias Utilizadas
+### 1. Prerequisites
 
-  * **Backend:** Node.js (JavaScript ESM)
-  * **Framework Web:** Express.js
-  * **Banco de Dados:** MongoDB
-  * **Agendamento de Tarefas:** `node-cron`
-  * **Cliente HTTP:** `axios` (no Worker)
-  * **Manipulação de Datas:** `date-fns`
-  * **Cálculos Estatísticos:** `mathjs` (no Analyzer)
-  * **Infraestrutura:** Docker, Docker Compose
-  * **Servidor/Proxy:** Nginx
-  * **Desenvolvimento:** Nodemon (para hot-reload)
+- [Docker](https://www.docker.com/get-started/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
 
------
+### 2. Configuration
 
-## Como Rodar o Projeto
+1.  Create a `.env` file in the root of the project by copying the contents of `.env.example`:
+    ```bash
+    cp .env.example .env
+    ```
+2.  **Crucially**, update the `LOCATION_LATITUDE` and `LOCATION_LONGITUDE` in your `.env` file to the desired location for weather analysis.
 
-### 1\. Pré-requisitos
+    ```ini
+    # .env file example
+    TZ=America/Sao_Paulo
+    MONGO_ROOT_USER=admin
+    MONGO_ROOT_PASSWORD=password
+    WORKER_CRON_SCHEDULE='0 5 * * *'
+    ANALYZER_CRON_SCHEDULE='10 5 * * *'
+    LOCATION_LATITUDE=-22.9056
+    LOCATION_LONGITUDE=-47.0608
+    OPEN_METEO_FORECAST_URL=https://api.open-meteo.com/v1/forecast
+    OPEN_METEO_AIR_QUALITY_URL=https://air-quality-api.open-meteo.com/v1/air-quality
+    WORKER_PORT=3001
+    ```
 
-  * [Docker](https://www.docker.com/get-started)
-  * [Docker Compose](https://docs.docker.com/compose/install/)
+### 3. Running the Application
 
-### 2\. Configuração
-
-Antes de iniciar, crie um arquivo `.env` na raiz do projeto (você pode copiar o conteúdo abaixo).
-
-**Atenção:** É crucial atualizar `LOCATION_LATITUDE` e `LOCATION_LONGITUDE` para a localidade que você deseja analisar.
-
-```ini
-# Fuso horário para os cron jobs e logs
-TZ=America/Sao_Paulo
-
-# --- Credenciais do Banco de Dados ---
-MONGO_ROOT_USER=admin
-MONGO_ROOT_PASSWORD=password
-
-# --- Agendamento dos Serviços (formato cron) ---
-# Ex: '5 * * * *' = Aos 5 minutos de toda hora
-WORKER_CRON_SCHEDULE='0 5 * * *'
-# Ex: '10 * * * *' = Aos 10 minutos de toda hora (deve ser DEPOIS do worker)
-ANALYZER_CRON_SCHEDULE='10 5 * * *'
-
-# --- Configurações de Localização ---
-LOCATION_LATITUDE=-22.9056
-LOCATION_LONGITUDE=-47.0608
-
-# --- Endpoints de API ---
-OPEN_METEO_FORECAST_URL=https://api.open-mexeo.com/v1/forecast
-OPEN_METEO_AIR_QUALITY_URL=https://air-quality-api.open-meteo.com/v1/air-quality
-
-# --- Portas dos Serviços ---
-WORKER_PORT=3001
-```
-
-### 3\. Execução
-
-Com o Docker Desktop em execução, rode o seguinte comando na raiz do projeto:
+Ensure Docker Desktop is running, then execute the following command in the root directory of the project:
 
 ```bash
-# Constrói as imagens e inicia todos os contêineres em modo "detached" (background)
 docker-compose up -d --build
 ```
 
-### 4\. Acessando os Serviços
+This command will build the Docker images for the `worker` and `analyzer` services and start all containers (Nginx, MongoDB, Worker, Analyzer) in detached mode.
 
-Após os contêineres iniciarem (pode levar alguns segundos), os serviços estarão disponíveis:
+## Usage / How to Run ▶️
 
-  * **Painel de Controle (UI):**
+Once the Docker containers are up and running, the services will be accessible:
 
-      * `http://localhost:80`
-      * (Mapeado pelo Nginx para o serviço `analyzer` na porta 3000)
+- **Control Panel (UI & API):**
+  - Access the main interface at: `http://localhost:80` 
+  - This route is handled by Nginx and forwards requests to the Analyzer service (port 3000).
 
-  * **Health Checks (via Nginx):**
+- **Health Checks (via Nginx):**
+  - Analyzer Service: `http://localhost:80/health`
+  - Worker Service: `http://localhost:80/worker/health`
 
-      * **Analyzer:** `http://localhost:80/health`
-      * **Worker:** `http://localhost:80/worker/health`
+### Triggering Jobs Manually ⚙️
 
-### 5\. Acionando Jobs Manualmente
+While jobs are scheduled to run automatically based on the `*_CRON_SCHEDULE` in your `.env` file, you can manually trigger them for testing or immediate analysis:
 
-Os jobs rodam automaticamente com base no `CRON_SCHEDULE`. Se quiser testar imediatamente, você pode acioná-los:
+1.  **Trigger Worker (Data Collection):**
+    - Open your browser's developer console.
+    - Navigate to `http://localhost:80` (the main control panel).
+    - Execute the following JavaScript code:
+      ```javascript
+      fetch('http://localhost:80/worker/jobs/weather/run', { method: 'POST' })
+          .then(res => res.json())
+          .then(console.log);
+      ```
+    - *Note: The main UI does not have a dedicated button for the worker job.* 
 
-1.  **Acionar o Worker (Coleta):**
+2.  **Trigger Analyzer (Analysis Job):**
+    - After triggering the worker job (or waiting for its scheduled run), allow a few moments for data processing.
+    - Go to the main control panel (`http://localhost:80`).
+    - Click the **"Run Analysis Job"** button.
+    - After the analysis job completes, click the **"Fetch Latest Reports"** button to view the generated reports.
 
-      * Acesse o Painel (`http://localhost:80`), abra o console do navegador e rode:
-        ```javascript
-        fetch('http://localhost:80/worker/jobs/weather/run', { method: 'POST' })
-            .then(res => res.json())
-            .then(console.log);
-        ```
-      * *Nota: O painel principal não tem um botão para o worker, apenas para o analyzer.*
+## API Reference 📄
 
-2.  **Acionar o Analyzer (Análise):**
+### Analyzer Service API
 
-      * Aguarde alguns segundos após acionar o worker.
-      * Acesse o Painel (`http://localhost:80`) e clique no botão **"Run Analysis Job"**.
-      * Após a conclusão, clique em **"Fetch Latest Reports"** para ver os resultados.
+- **`POST /api/jobs/analysis/run`**: Manually triggers the analysis job. Returns `202 Accepted`.
+- **`GET /api/reports`**: Fetches the latest analysis reports. Returns an array of report objects.
+
+### Worker Service API (via Nginx Proxy)
+
+- **`POST /worker/jobs/weather/run`**: Manually triggers the data collection job. Returns `202 Accepted`.
+- **`GET /worker/health`**: Health check endpoint for the worker service.
+
+## Contributing 🤝
+
+Contributions are welcome! Please feel free to:
+
+- **Fork** the repository.
+- **Create** a new branch (`git checkout -b feature/your-feature-name`).
+- **Commit** your changes (`git commit -m 'Add some feature'`).
+- **Push** to the branch (`git push origin feature/your-feature-name`).
+- **Open** a Pull Request.
+
+Please ensure your code adheres to the existing style and includes relevant tests if applicable. Report any issues through the Issues tab.
+
+## License ⚖️
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Footer Made with ❤️
+
+**Weather Analysis Engine**
+
+- **URL:** [https://github.com/PedroMissola/Weather-analysis-engine](https://github.com/PedroMissola/Weather-analysis-engine)
+- **Author:** PedroMissola
+
+Give a ⭐️ to show your support!
+
+[![GitHub Stars](https://img.shields.io/github/stars/PedroMissola/Weather-analysis-engine?style=social)](https://github.com/PedroMissola/Weather-analysis-engine/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/PedroMissola/Weather-analysis-engine?style=social)](https://github.com/PedroMissola/Weather-analysis-engine/forks)
